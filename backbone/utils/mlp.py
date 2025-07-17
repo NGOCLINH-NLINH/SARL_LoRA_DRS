@@ -36,12 +36,8 @@ class SparseMlp(nn.Module):
         self.drop = nn.Dropout(drop)
 
     def forward(self, x):
-        print("Inside MLP")
-        print(x.shape)
         x = self.fc1(x)
-        print(x.shape)
         x = self.act(x)
-        print("=" *30)
         x = self.drop(x)
         x = self.fc2(x)
         x = self.drop(x)
