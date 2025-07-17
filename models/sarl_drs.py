@@ -51,7 +51,6 @@ def get_parser() -> ArgumentParser:
     parser.add_argument('--lr_steps', type=int, nargs='*', default=[70, 90])
 
     parser.add_argument('--lora_r', type=int, default=8)
-    parser.add_argument('--num_tasks', type=int, default=10)
     parser.add_argument('--pretrained_path', type=str, default=None)
     parser.add_argument('--drs_variance', type=float, default=0.99)
     return parser
