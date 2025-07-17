@@ -57,7 +57,7 @@ for seed in lst_seed:
         job_args = f"python main.py  \
             --experiment_id {exp_id} \
             --model sarl_drs \
-            --dataset seq-cifar100 \
+            --dataset seq-cifar100-vit \
             --kw {params['kw']} \
             --alpha {params['alpha']} \
             --beta {params['beta']} \
