@@ -110,7 +110,6 @@ class SARLDRS(ContinualModel):
         self.drs_setup_done = False
 
         self.net_old = None
-        self.get_optimizer()
 
         # set regularization weight
         self.alpha = args.alpha
@@ -119,6 +118,8 @@ class SARLDRS(ContinualModel):
         self.current_task = 0
         self.global_step = 0
         self.lst_models = ['net']
+
+        self.get_optimizer()
 
         # init Object Prototypes
         self.op = torch.zeros(num_classes_dict[args.dataset], args.num_feats).to(self.device)
