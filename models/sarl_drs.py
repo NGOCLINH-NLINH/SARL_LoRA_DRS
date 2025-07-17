@@ -141,7 +141,17 @@ class SARLDRS(ContinualModel):
         print("Calculating Drift-Resistant Space for task {}...".format(self.current_task))
         self.net.eval()
 
-        temp_loader = DataLoader(self.buffer.to_dataset(), batch_size=self.args.batch_size, shuffle=False)
+        print("Fetching data from buffer to compute DRS...")
+        buf_inputs, buf_labels, _ = self.buffer.get_all_data()
+
+        if len(buf_inputs) == 0:
+            print("Warning: Buffer is empty. Cannot compute DRS. Skipping...")
+            self.drs_setup_done = True
+            self.net.train()
+            return
+
+        buffer_dataset = torch.utils.data.TensorDataset(buf_inputs, buf_labels)
+        temp_loader = DataLoader(buffer_dataset, batch_size=self.args.batch_size, shuffle=False)
 
         temp_net = deepcopy(self.net)
         temp_net_dict = temp_net.state_dict()
@@ -456,16 +466,30 @@ class SARLDRS(ContinualModel):
         self.get_optimizer()
 
     def get_optimizer(self):
-        params_to_train = []
-        for name, param in self.net.named_parameters():
-            if 'head' in name:
+        if self.current_task == 0:
+            print("Task 0: Full network fine-tuning mode.")
+            params_to_train = self.net.parameters()
+
+            for param in self.net.parameters():
                 param.requires_grad = True
-                params_to_train.append(param)
-            elif 'lora' in name and f".{self.current_task}." in name:
-                param.requires_grad = True
-                params_to_train.append(param)
-            else:
+
+        else:
+            print(f"Task > 0: Parameter-Efficient Continual Learning mode.")
+            params_to_train = []
+            for name, param in self.net.named_parameters():
                 param.requires_grad = False
+
+                if 'head' in name:
+                    param.requires_grad = True
+                    params_to_train.append(param)
+
+                elif 'lora' in name:
+                    parts = name.split('.')
+                    if len(parts) > 1 and parts[-2].isdigit():
+                        task_idx_in_name = int(parts[-2])
+                        if task_idx_in_name == self.current_task:
+                            param.requires_grad = True
+                            params_to_train.append(param)
 
         print("Parameters to train:", [name for name, p in self.net.named_parameters() if p.requires_grad])
 
