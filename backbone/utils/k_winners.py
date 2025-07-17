@@ -386,3 +386,54 @@ class KWinners2d(KWinnersBase):
             s += ", inplace=True"
         s += ", {}".format(super().extra_repr())
         return s
+
+
+class KWinners1d(KWinnersBase):
+    def __init__(
+            self,
+            channels: int,
+            percent_on: float,
+            k_inference_factor: float = 1.0,
+            boost_strength: float = 1.0,
+            boost_strength_factor: float = 1.0,
+            duty_cycle_period=1000,
+            relu=True
+    ):
+        super(KWinners1d, self).__init__(
+            percent_on=percent_on,
+            k_inference_factor=k_inference_factor,
+            boost_strength=boost_strength,
+            boost_strength_factor=boost_strength_factor,
+            duty_cycle_period=duty_cycle_period
+        )
+        self.channels = channels
+        self.k = int(round(self.channels * self.percent_on))
+        self.k_inference = int(round(self.channels * self.percent_on_inference))
+        self.relu = relu
+
+        self.register_buffer("duty_cycle", torch.zeros(channels))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() != 3:
+            raise ValueError("KWinners1d expects a 3D tensor input [Batch, SequenceLength, Features]")
+
+        if self.relu:
+            x = F.relu(x)
+
+        k = self.k
+        if not self.training:
+            k = min(self.k_inference, self.channels)
+
+        if k >= self.channels:
+            return x
+
+        k_smallest_index = self.channels - k
+
+        thresholds = torch.kthvalue(x, k_smallest_index, dim=-1, keepdim=True).values
+
+        mask = (x > thresholds).float()
+
+        return x * mask
+
+    def __repr__(self):
+        return f"KWinners1d(k={self.k}, channels={self.channels})"

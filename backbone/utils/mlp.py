@@ -1,6 +1,6 @@
 
 import torch.nn as nn
-from backbone.utils.k_winners import KWinners2d
+from backbone.utils.k_winners import KWinners1d, KWinners2d
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -27,14 +27,10 @@ class SparseMlp(nn.Module):
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = KWinners2d(
+        self.act = KWinners1d(
             channels=hidden_features,
             percent_on=kw_percent_on,
-            k_inference_factor=1.0,
-            boost_strength=0.0,
-            boost_strength_factor=0.0,
-            local=True,
-            relu=False,
+            relu=True
         )
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
