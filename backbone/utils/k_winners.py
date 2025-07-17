@@ -415,25 +415,45 @@ class KWinners1d(KWinnersBase):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dim() != 3:
-            raise ValueError("KWinners1d expects a 3D tensor input [Batch, SequenceLength, Features]")
+            raise ValueError("KWinners1d expects a 3D tensor input [Batch, Sequence, Features]")
 
         if self.relu:
-            x = F.relu(x)
+            x = torch.nn.functional.relu(x)
 
         k = self.k
         if not self.training:
             k = min(self.k_inference, self.channels)
 
         if k >= self.channels:
+            if self.training:
+                self.update_duty_cycle(x)
             return x
 
         k_smallest_index = self.channels - k
-
         thresholds = torch.kthvalue(x, k_smallest_index, dim=-1, keepdim=True).values
-
         mask = (x > thresholds).float()
 
-        return x * mask
+        output = x * mask
+
+        if self.training:
+            self.update_duty_cycle(output)
+
+        return output
+
+    def update_duty_cycle(self, x: torch.Tensor):
+        batch_size = x.shape[0]
+        if batch_size == 0:
+            return
+
+        self.learning_iterations += batch_size
+        period = min(self.duty_cycle_period, self.learning_iterations)
+
+        self.duty_cycle.mul_(period - batch_size)
+
+        new_active_sum = x.gt(0).sum(dim=(0, 1), dtype=torch.float)
+
+        self.duty_cycle.add_(new_active_sum)
+        self.duty_cycle.div_(period)
 
     def __repr__(self):
-        return f"KWinners1d(k={self.k}, channels={self.channels})"
+        return f"KWinners1d(k={self.k}, channels={self.channels}, relu={self.relu})"
