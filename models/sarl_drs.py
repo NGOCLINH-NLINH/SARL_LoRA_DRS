@@ -24,6 +24,7 @@ num_classes_dict = {
     'seq-tinyimg': 200,
     'gcil-cifar100': 100,
     'seq-imagenet100': 100,
+    'seq-cifar100-vit': 100,
 }
 
 
