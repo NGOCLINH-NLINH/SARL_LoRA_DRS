@@ -155,10 +155,10 @@ class SARLDRS(ContinualModel):
         features = {}
         hooks = []
 
-        def hook_fn(module, input, output):
+        def hook_fn(module, input):
             features[module.name] = input[0].detach()
 
-        for name, module in temp_net.named_modules():
+        for name, module in self.net.named_modules():
             if isinstance(module, Attention_LoRA):
                 module.name = name
                 hooks.append(module.register_forward_pre_hook(hook_fn))
@@ -166,7 +166,7 @@ class SARLDRS(ContinualModel):
         with torch.no_grad():
             for data_batch in temp_loader:
                 inputs = data_batch[0]
-                temp_net(inputs.to(self.device))
+                self.net(inputs.to(self.device))
 
         for hook in hooks:
             hook.remove()
