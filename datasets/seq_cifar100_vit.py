@@ -17,6 +17,8 @@ from typing import Tuple
 from datasets.transforms.denormalization import DeNormalize
 from argparse import Namespace
 
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
 
 class MyCIFAR100(CIFAR100):
     """
@@ -24,7 +26,10 @@ class MyCIFAR100(CIFAR100):
     """
     def __init__(self, root, train=True, transform=None,
                  target_transform=None, download=False) -> None:
-        self.not_aug_transform = transforms.Compose([transforms.ToTensor()])
+        self.not_aug_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor()
+        ])
         super(MyCIFAR100, self).__init__(root, train, transform, target_transform, download)
 
     def __getitem__(self, index: int) -> Tuple[type(Image), int, type(Image)]:
@@ -59,14 +64,14 @@ class SequentialCIFAR100Vit(ContinualDataset):
     SETTING = 'class-il'
     N_CLASSES_PER_TASK = 10
     N_TASKS = 10
+
     TRANSFORM = transforms.Compose(
             [
              transforms.Resize((224, 224)),
-             transforms.RandomCrop(224, padding=4),
+             transforms.RandomCrop(224, padding=28),
              transforms.RandomHorizontalFlip(),
              transforms.ToTensor(),
-             transforms.Normalize((0.4914, 0.4822, 0.4465),
-                                  (0.2470, 0.2435, 0.2615))
+             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
              ]
     )
 
@@ -77,8 +82,8 @@ class SequentialCIFAR100Vit(ContinualDataset):
         """
         super(SequentialCIFAR100Vit, self).__init__(args)
 
-        SequentialCIFAR100Vit.N_TASKS = args.cifar100_num_tasks
-        SequentialCIFAR100Vit.N_CLASSES_PER_TASK = 100 // args.cifar100_num_tasks
+        SequentialCIFAR100Vit.N_TASKS = args.num_tasks
+        SequentialCIFAR100Vit.N_CLASSES_PER_TASK = 100 // args.num_tasks
         print(f'Setting the Number of tasks to {SequentialCIFAR100Vit.N_TASKS} with {SequentialCIFAR100Vit.N_CLASSES_PER_TASK} classes each')
 
     def get_data_loaders(self):
@@ -100,7 +105,11 @@ class SequentialCIFAR100Vit(ContinualDataset):
         return train, test
 
     def not_aug_dataloader(self, batch_size):
-        transform = transforms.Compose([transforms.ToTensor(), self.get_normalization_transform()])
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            self.get_normalization_transform()
+        ])
 
         train_dataset = MyCIFAR100(base_path() + 'CIFAR100', train=True,
                                    download=True, transform=transform)
@@ -125,12 +134,10 @@ class SequentialCIFAR100Vit(ContinualDataset):
 
     @staticmethod
     def get_normalization_transform():
-        transform = transforms.Normalize((0.4914, 0.4822, 0.4465),
-                                         (0.2470, 0.2435, 0.2615))
+        transform = transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
         return transform
 
     @staticmethod
     def get_denormalization_transform():
-        transform = DeNormalize((0.4914, 0.4822, 0.4465),
-                                (0.2470, 0.2435, 0.2615))
+        transform = DeNormalize(IMAGENET_MEAN, IMAGENET_STD)
         return transform

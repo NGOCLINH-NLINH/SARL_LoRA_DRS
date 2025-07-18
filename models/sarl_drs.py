@@ -481,9 +481,9 @@ class SARLDRS(ContinualModel):
                             params_to_train.append(param)
             self.opt = torch.optim.AdamW(params_to_train, lr=self.args.lr, weight_decay=0.01)
 
-        print("Parameters to train:", [name for name, p in self.net.named_parameters() if p.requires_grad])
+            if self.args.use_lr_scheduler:
+                self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.opt, self.args.lr_steps, gamma=0.1)
+            else:
+                self.scheduler = None
 
-        if self.args.use_lr_scheduler:
-            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.opt, self.args.lr_steps, gamma=0.1)
-        else:
-            self.scheduler = None
+        print("Parameters to train:", [name for name, p in self.net.named_parameters() if p.requires_grad])
