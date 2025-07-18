@@ -26,7 +26,7 @@ def add_experiment_args(parser: ArgumentParser) -> None:
     parser.add_argument('--batch_size', type=int, required=True)
     parser.add_argument('--n_epochs', type=int, required=True)
     parser.add_argument('--save_model', type=int, default=0)
-    parser.add_argument('--num_tasks', type=int, default=20)
+    parser.add_argument('--num_tasks', type=int, default=10)
     parser.add_argument('--cifar100_num_tasks', type=int, default=5)
     parser.add_argument('--optim_wd', type=float, default=0.,
                         help='optimizer weight decay.')

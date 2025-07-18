@@ -461,6 +461,7 @@ class SARLDRS(ContinualModel):
                 param.requires_grad = True
 
             self.opt = torch.optim.AdamW(params_to_train, lr=1e-4, weight_decay=0.01)
+            self.scheduler = None
 
         else:
             print(f"Task > 0: Parameter-Efficient Continual Learning mode.")
