@@ -158,7 +158,7 @@ class SARLDRS(ContinualModel):
         def hook_fn(module, input):
             features[module.name] = input[0].detach()
 
-        for name, module in self.net.named_modules():
+        for name, module in temp_net.named_modules():
             if isinstance(module, Attention_LoRA):
                 module.name = name
                 hooks.append(module.register_forward_pre_hook(hook_fn))
@@ -166,7 +166,7 @@ class SARLDRS(ContinualModel):
         with torch.no_grad():
             for data_batch in temp_loader:
                 inputs = data_batch[0]
-                self.net(inputs.to(self.device))
+                temp_net(inputs.to(self.device))
 
         for hook in hooks:
             hook.remove()
@@ -187,7 +187,10 @@ class SARLDRS(ContinualModel):
                 k = torch.where(cumsum_eigvals / total_var >= 0.99)[0][0]
 
                 P_t = sorted_eigvecs[:, :k + 1]
-                self.drs_projections[f"{name}.qkv.weight"] = P_t
+
+                projection_matrix = P_t @ P_t.T
+
+                self.drs_projections[name] = projection_matrix
                 print(f"Layer {name}: DRS subspace dimension = {P_t.shape[1]}")
 
         self.drs_setup_done = True
@@ -283,18 +286,15 @@ class SARLDRS(ContinualModel):
         if self.current_task > 0:
             with torch.no_grad():
                 for name, param in self.net.named_parameters():
-                    if param.requires_grad and param.grad is not None:
-                        if 'lora' in name:
-                            layer_name = name.split('.lora_')[0]
-                            proj_name = f"{layer_name}.qkv.weight"
+                    if param.requires_grad and param.grad is not None and 'lora' in name:
+                        layer_name = name.split('.lora_')[0]
+                        if layer_name in self.drs_projections:
+                            projection_matrix = self.drs_projections[layer_name]
 
-                            if proj_name in self.drs_projections:
-                                P_t = self.drs_projections[proj_name]
-
-                                original_shape = param.grad.data.shape
-                                grad_vec = param.grad.data.view(-1)
-                                projected_grad = P_t @ (P_t.T @ grad_vec)
-                                param.grad.data.copy_(projected_grad.view(original_shape))
+                            if param.grad.data.shape[1] == projection_matrix.shape[0]:
+                                param.grad.data.copy_(param.grad.data @ projection_matrix)
+                            elif param.grad.data.shape[0] == projection_matrix.shape[0]:
+                                param.grad.data.copy_(projection_matrix @ param.grad.data)
 
         self.opt.step()
 
