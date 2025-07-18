@@ -94,19 +94,6 @@ class SARLDRS(ContinualModel):
         print("Successfully loaded pre-trained backbone weights.")
         self.w0 = {name: p.clone().detach() for name, p in self.net.named_parameters()}
 
-        # if self.args.pretrained_path:
-        #     print(f"Loading pre-trained weights from: {self.args.pretrained_path}")
-        #     try:
-        #         checkpoint = torch.load(self.args.pretrained_path, map_location=self.device)
-        #         missing_keys, unexpected_keys = self.net.load_state_dict(checkpoint, strict=False)
-        #         print("Missing keys:", missing_keys)
-        #         print("Unexpected keys:", unexpected_keys) # Thường là các key của lớp 'head'
-        #     except FileNotFoundError:
-        #         print(f"ERROR: Pre-trained weights file not found at {self.args.pretrained_path}. Training from scratch.")
-        # else:
-        #     print("No pre-trained path provided. Training from scratch.")
-        # self.w0 = {name: p.clone().detach() for name, p in self.net.named_parameters()}
-
         self.drs_projections = {}
         self.drs_setup_done = False
 
@@ -177,8 +164,8 @@ class SARLDRS(ContinualModel):
                 hooks.append(module.register_forward_pre_hook(hook_fn))
 
         with torch.no_grad():
-            for data in temp_loader:
-                inputs, _, _ = data
+            for data_batch in temp_loader:
+                inputs = data_batch[0]
                 temp_net(inputs.to(self.device))
 
         for hook in hooks:
@@ -473,6 +460,8 @@ class SARLDRS(ContinualModel):
             for param in self.net.parameters():
                 param.requires_grad = True
 
+            self.opt = torch.optim.AdamW(params_to_train, lr=1e-4, weight_decay=0.01)
+
         else:
             print(f"Task > 0: Parameter-Efficient Continual Learning mode.")
             params_to_train = []
@@ -490,10 +479,10 @@ class SARLDRS(ContinualModel):
                         if task_idx_in_name == self.current_task:
                             param.requires_grad = True
                             params_to_train.append(param)
+            self.opt = torch.optim.AdamW(params_to_train, lr=self.args.lr, weight_decay=0.01)
 
         print("Parameters to train:", [name for name, p in self.net.named_parameters() if p.requires_grad])
 
-        self.opt = SGD(params_to_train, lr=self.args.lr)
         if self.args.use_lr_scheduler:
             self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.opt, self.args.lr_steps, gamma=0.1)
         else:
